@@ -9,39 +9,57 @@
       padding: 0;
       overflow: hidden;
       background: #000;
+      font-family: Arial, "Noto Sans TC", "PingFang TC", "Heiti TC", sans-serif;
     }
-    #startBtn {
+    button {
       position: absolute;
-      top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px 40px;
-      font-size: 24px;
+      transform: translateX(-50%);
+      padding: 16px 28px;
+      font-size: 22px;
       background-color: #ff69b4;
-      color: white;
+      color: #fff;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       cursor: pointer;
       z-index: 10;
+      box-shadow: 0 10px 24px rgba(255,105,180,.35);
+      transition: transform .12s ease, opacity .2s ease;
+      opacity: 0.98;
     }
-    canvas {
-      display: block;
-    }
+    button:active { transform: translateX(-50%) scale(0.98); }
+
+    #startBtn { top: 50%; transform: translate(-50%, -50%); }
+    #heartBtn, #replayBtn { display: none; }
+
+    #heartBtn { top: 50%; transform: translate(-50%, -50%); }
+    #replayBtn { bottom: 8vh; }
+
+    canvas { display: block; }
   </style>
 </head>
 <body>
   <button id="startBtn">如果覺得煒喆好帥就點一下</button>
+  <button id="heartBtn">點一下</button>
+  <button id="replayBtn">再看一次</button>
   <canvas id="canvas"></canvas>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const startBtn = document.getElementById('startBtn');
+    const heartBtn = document.getElementById('heartBtn');
+    const replayBtn = document.getElementById('replayBtn');
+
+    function fitCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    fitCanvas();
 
     let hearts = [];
     let particles = [];
-    let mode = 0;
+    let mode = 0; 
     const totalHearts = 1000;
 
     class Heart {
@@ -54,7 +72,6 @@
         this.speedY = (Math.random() - 0.5) * 2;
         this.target = null;
       }
-
       draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
@@ -69,11 +86,11 @@
         ctx.fill();
         ctx.restore();
       }
-
       update() {
         if (this.target) {
-          this.x += (this.target.x - this.x) * 0.05;
-          this.y += (this.target.y - this.y) * 0.05;
+          const k = mode === 1 ? 0.18 : 0.10;
+          this.x += (this.target.x - this.x) * k;
+          this.y += (this.target.y - this.y) * k;
         } else {
           this.x += this.speedX;
           this.y += this.speedY;
@@ -85,23 +102,20 @@
 
     class Particle {
       constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.size = Math.random() * 3 + 1; // ✅ 粒子更細小！
+        this.x = x; this.y = y;
+        this.size = Math.random() * 3 + 1;
         this.alpha = 1;
         this.color = `rgba(255, 105, 180, ${this.alpha})`;
         this.speedX = (Math.random() - 0.5) * 4;
         this.speedY = (Math.random() - 0.5) * 4;
         this.gravity = 0.05;
       }
-
       draw() {
         ctx.beginPath();
         ctx.fillStyle = this.color;
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
       }
-
       update() {
         this.speedY += this.gravity;
         this.x += this.speedX;
@@ -113,43 +127,35 @@
 
     function createHearts() {
       hearts = [];
-      for (let i = 0; i < totalHearts; i++) {
-        hearts.push(new Heart());
-      }
+      for (let i = 0; i < totalHearts; i++) hearts.push(new Heart());
     }
 
     function animate() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      for (let h of hearts) {
-        h.update();
-        h.draw();
-      }
-
+      for (let h of hearts) { h.update(); h.draw(); }
       for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].update();
-        particles[i].draw();
-        if (particles[i].alpha <= 0) {
-          particles.splice(i, 1);
-        }
+        particles[i].update(); particles[i].draw();
+        if (particles[i].alpha <= 0) particles.splice(i, 1);
       }
-
       requestAnimationFrame(animate);
     }
 
     function createHeartShape() {
       const points = [];
-      const scale = 18;
+      const scale = Math.min(canvas.width, canvas.height) / 40;
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
-
       for (let t = 0; t < Math.PI * 2; t += 0.03) {
-        let x = scale * 16 * Math.pow(Math.sin(t), 3);
-        let y = -scale * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+        const x = scale * 16 * Math.pow(Math.sin(t), 3);
+        const y = -scale * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
         points.push({ x: centerX + x, y: centerY + y });
       }
-
       assignTargets(points);
+
+      // ★ 新增：延遲 1 秒後再顯示按鈕
+      setTimeout(() => {
+        heartBtn.style.display = 'block';
+      }, 1000);
     }
 
     function createTextShape(text) {
@@ -160,27 +166,27 @@
       tempCanvas.height = canvas.height;
 
       tempCtx.fillStyle = 'white';
-      tempCtx.font = 'bold 80px Arial'; // 避免文字太大被截掉
+      const fontSize = Math.max(48, Math.min(140, Math.floor(canvas.width * 0.10)));
+      tempCtx.font = `bold ${fontSize}px Arial`;
       tempCtx.textAlign = 'center';
+      tempCtx.textBaseline = 'middle';
       tempCtx.fillText(text, canvas.width / 2, canvas.height / 2);
 
       const imageData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
-
-      for (let y = 0; y < canvas.height; y += 4) {
-        for (let x = 0; x < canvas.width; x += 4) {
+      const step = Math.max(3, Math.floor(fontSize / 20));
+      for (let y = 0; y < canvas.height; y += step) {
+        for (let x = 0; x < canvas.width; x += step) {
           const index = (y * canvas.width + x) * 4;
-          if (imageData.data[index + 3] > 128) {
-            points.push({ x, y });
-          }
+          if (imageData.data[index + 3] > 128) points.push({ x, y });
         }
       }
-
       assignTargets(points);
     }
 
     function assignTargets(points) {
+      const L = points.length;
       for (let i = 0; i < hearts.length; i++) {
-        let p = points[i % points.length];
+        const p = points[i % L];
         hearts[i].target = { x: p.x, y: p.y };
       }
     }
@@ -193,28 +199,41 @@
       }
     }
 
-    document.getElementById('startBtn').addEventListener('click', () => {
-      document.getElementById('startBtn').style.display = 'none';
-      createHearts();
-      animate();
+    function resetToStart() {
+      mode = 0;
+      hearts = [];
+      particles = [];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      heartBtn.style.display = 'none';
+      replayBtn.style.display = 'none';
+      startBtn.style.display = 'block';
+    }
 
+    startBtn.addEventListener('click', () => {
+      startBtn.style.display = 'none';
+      createHearts();
+      if (!window.__animStarted) { window.__animStarted = true; animate(); }
       setTimeout(() => {
         mode = 1;
         createHeartShape();
-      }, 2000);
+      }, 800);
     });
 
-    canvas.addEventListener('click', () => {
-      if (mode === 1) {
-        mode = 2;
-        createTextShape('I   LOVE   YOU');
-        createParticleBurst();
-      }
+    heartBtn.addEventListener('click', () => {
+      if (mode !== 1) return;
+      heartBtn.style.display = 'none';
+      mode = 2;
+      createTextShape('I   LOVE   YOU');
+      createParticleBurst();
+      setTimeout(() => { replayBtn.style.display = 'block'; }, 2000);
     });
+
+    replayBtn.addEventListener('click', resetToStart);
 
     window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      fitCanvas();
+      if (mode === 1) createHeartShape();
+      else if (mode === 2) createTextShape('I   LOVE   YOU');
     });
   </script>
 </body>
